@@ -1,0 +1,46 @@
+$(function(){
+ 
+  
+
+  
+  // tooltip
+  
+   $('.my-tooltip').tooltipster();
+  
+  
+  // publicidades
+  if(window.location.pathname == "/forum") {} else {
+    $('#main-content div').first().css({
+    'margin-left': '30%', 
+    'position':'relative'
+  });
+  
+  }
+  // form 
+  $('a[href="/post?f=3&mode=newtopic"]').attr('href', '/h7-');
+    $('a[href="/post?f=1&mode=newtopic"]').attr('href', '/h6-');
+    $('a[href="/post?f=4&mode=newtopic"]').attr('href', '/h5-');
+  
+  //header
+  $('#headerbar-top').attr('id', 'headerbar-holder').addClass('is-sticky');
+
+    
+  //navlinks 
+  $('a.nav:nth-child(1) > span:nth-child(1)').html("<i class='fas fa-home' style='padding-top: 0.4em'></i>");
+  $('a.nav[href="/f3-faqs"]').html('<i class="fab fa-accusoft" style="padding-top: 0.4em"></i>');
+   $('a.nav[href="/f3-normas-e-duvidas"]').html('<i class="fas fa-chart-line" style="padding-top: 0.4em"></i>');
+   $('a.nav[href="/f4-css-e-html"]').html('<i class="fab fa-css3-alt" style="padding-top: 0.4em"></i>');
+    $('a.nav[href="/f1-javascript"]').html('<i class="fab fa-js-square" style="padding-top: 0.4em"></i>');
+   $('a.nav[href="/f5-criacao-de-sites"]').html('<i class="fas fa-sitemap" style="padding-top: 0.4em"></i>');
+  $('a.nav[href="/f2-capas"]').html('<i class="fab fa-cc-discover" style="padding-top: 0.4em"></i>');
+   $('a.nav[href="/f7-responsividade"]').html('<i class="fab fa-buromobelexperte" style="padding-top: 0.4em"></i>');
+   $('a.nav[href="/f6-marketing-digital]').html('<i class="fas fa-map" style="padding-top: 0.4em"></i>');
+  // menu 
+  
+   $('a.mainmenu[href="/forum"]').html('<i class="fas fa-home"></i>');
+   $('a.mainmenu[href="/publi"]').html('<i class="far fa-newspaper"></i>');
+   $('a.mainmenu[href="/search"]').html('<i class="fas fa-search"></i>');
+   $('a.mainmenu[href="/profile?mode=editprofile"]').html('<i class="fas fa-user-circle"></i>');
+   $('.is-sticky .navbar').show();
+  
+});

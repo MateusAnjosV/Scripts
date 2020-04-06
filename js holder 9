@@ -1,0 +1,28 @@
+if($('#mpage-body-modern').length) {
+//mobileversion
+} else {
+
+$(window).load(function(){
+ 
+  /// desc 
+  $('.lastpost').css({
+    'color':'transparent',
+    'margin-top': '0 !important',
+  });
+$('.lastpost span').each(function(){
+	$this = $(this);
+	$this.find('a').last().before('<div class="holderdesc">...</div>'); var link = $this.find('a').attr('href'); 
+	$('.holderdesc').css('color', 'gray');
+	var seletor = $this.find('.holderdesc');
+	$.get(link, function(desc) { 
+	 var hdesc = $('div[class="content"]', desc).text(); 
+	 var hdescc = hdesc.substring(40, 115);
+	 seletor.text('[...]  '+hdescc+'  [...]');
+	});  
+  
+	
+	
+	});
+});
+
+}

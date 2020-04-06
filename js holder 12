@@ -1,0 +1,6 @@
+$(function(){
+  $('.submit-buttons input[name="submit"]').click(function(e){e.preventDefault();
+  alert('Cadastrado. Agora entre com a sua conta.'); 
+                                                               
+  });
+});

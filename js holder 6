@@ -1,0 +1,238 @@
+/***
+ * Copyright (c) 2013 JScript <jscriptbrasil at live dot com>
+ */
+jQuery(function () {
+    var iAmount = 10; 
+    var oConfig = { 
+        sContent:
+            '<div class="ipsHeaderMenu boxShadow" id="user_inbox_link_menucontent" style="display: none; width: 300px; position: fixed; z-index: 9999;">' +
+                '<h4 class="ipsType_sectiontitle">Inbox folder' +
+                    '<p class="ipsPad_half ipsType_smaller right">' +
+                        '<a class="configure" href="/privmsg?folder=inbox">Messages</a> · <a href="/privmsg?mode=post" title="New message">New message</a>' +
+                    '</p>' +
+                '</h4>' +
+                '<ul class="ipsList_withminiphoto"><img src="https://i.servimg.com/u/f55/18/17/62/92/ajax-l10.gif" alt="- Load" style="display: block; margin-left: auto; margin-right: auto;"></ul>' +
+            '</div>',     
+        sCSS:
+            '<style>' +
+            '.ipsHeaderMenu {' +
+                'background-color: #FFFFFF;' +
+                'border-radius: 0 0 6px 6px;' +
+                'overflow: hidden;' +
+                'padding: 10px;' +
+                'width: 340px;' +
+            '}' +
+            '.boxShadow {' +
+                'box-shadow: 0 12px 25px rgba(0, 0, 0, 0.58);' +
+            '}' +
+            '.ipsHeaderMenu .ipsType_sectiontitle {' +
+                'margin-bottom: 8px;' +
+            '}' +
+            '.ipsType_sectiontitle {' +
+                'border-bottom: 1px solid #ECECEC;' +
+                'color: #595959;' +
+                'font-size: 16px;' +
+                'font-weight: 400;' +
+                'padding: 5px 0;' +
+            '}' +
+            '.ipsType_smaller, .ipsType_smaller a {' +
+                'font-size: 11px !important;' +
+            '}' +
+            '.ipsPad_half {' +
+                'padding: 4px !important;' +
+            '}' +
+            '.right {' +
+                'float: right;' +
+            '}' +
+            '.ipsList_withminiphoto > li {' +
+                'margin-bottom: 8px;' +
+            '}' +
+            '.ipsType_small {' +
+                'font-size: 12px;' +
+            '}' +
+            '.ipsUserPhoto {' +
+                'background: none repeat scroll 0 0 #FFFFFF;' +
+                'border: 1px solid #D5D5D5 !important;' +
+                'box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);' +
+                'padding: 1px;' +
+            '}' +
+            '.ipsUserPhoto_mini {' +
+                'height: 30px;' +
+                'width: 30px;' +
+            '}' +
+            '.left {' +
+                'float: left;' +
+            '}' +
+            '.ipsList_withminiphoto > li .list_content {' +
+                'margin-left: 40px;' +
+            '}' +
+            '#user_inbox_link_menucontent ul.ipsList_withminiphoto {' +
+                'list-style: none outside none;' +
+                'padding-left: 0 !important;' +
+            '}' +
+            '.desc.lighter, .desc.lighter.blend_links a {' +
+                'color: #A4A4A4;' +
+            '}' +
+            '.ipsType_smaller, .ipsType_smaller a {' +
+                'font-size: 11px !important;' +
+            '}' +
+            '.menu_active {' +
+                'color: #595959 !important;' +
+                'background-color: black !important;' +
+                'background-position: center bottom;' +
+                'border-radius: 3px 3px 0 0;' +
+                'padding: 4px;' +
+            '}' +
+            '</style>',
+        sTarget: '',
+        sSearch: '',
+        sExpression0: '',
+        sExpression1: '',
+        sExpression2: '',
+        sGetIMG: ''
+    };
+ 
+    /* Add CSS */
+    /*document.head.insertAdjacentHTML('beforeEnd', oConfig.sCSS);*/
+    jQuery(oConfig.sCSS).insertBefore('body');
+    jQuery('body').append(oConfig.sInfo + oConfig.sContent);
+ 
+    /* Forum versions! */
+    var phpBB2 = jQuery('.bodyline');
+    var phpBB3 = jQuery('#wrap');
+    var punbb = jQuery('#pun-intro');
+    var invision = jQuery('#ipbwrapper');
+ 
+    if (phpBB2.length) {
+        oConfig.sSearch = 'form[name="privmsg_list"] .forumline tr';
+        oConfig.sTarget = 'tr';
+        oConfig.sExpression0 = 'memDiv.find("tr:first, tr:last").remove();';
+        oConfig.sExpression1 = 'jQuery(this).find("a.topictitle").html()';
+        oConfig.sExpression2 = 'jQuery(this).find("td .name").html() + " - " + jQuery(this).find("td .postdetails").html()';
+        oConfig.sGetIMG = ' #emptyidcc .row1.gensmall img:eq(0)';
+    } else if(phpBB3.length) {
+        oConfig.sSearch = '.topiclist.pmlist.bg_none li';
+        oConfig.sTarget = '.icon dt';
+        oConfig.sExpression1 = 'jQuery(this).find("a.topictitle")[0].outerHTML';
+        oConfig.sExpression2 = 'jQuery(this).find("em").html()';
+        oConfig.sGetIMG = ' #profile-advanced-right img:eq(0)';
+    } else if(punbb.length) {
+        oConfig.sSearch = '.main-content tr .tcl.tdtopics';
+        oConfig.sGetIMG = ' #profile-advanced-right .main-content img:first';
+    } else if(invision.length) {
+        oConfig.sSearch = '.borderwrap table.ipbtable tbody tr:not(":empty")';
+        oConfig.sTarget = 'tr';
+        oConfig.sExpression1 = 'var _tmp1 = jQuery(this).find("td:eq(2)");_tmp1.children("a.topictitle")[0].outerHTML';
+        oConfig.sExpression2 = '_tmp1.children("a.topictitle").remove();_tmp1.html()';
+        oConfig.sGetIMG = ' #profile-advanced-right .box-content.profile.center img:first';
+    };
+ 
+    jQuery('a[href*="/privmsg?folder=inbox"]').click(function () {
+        var oClicked = jQuery(this);
+        var oTarget = jQuery('#user_inbox_link_menucontent');
+ 
+        if (oTarget[0].style.display == 'none') {
+            oClicked.addClass('menu_active');
+         
+            if ( !jQuery('#user_inbox_link_menucontent ul.ipsList_withminiphoto > li').length ) {
+                var memDiv = jQuery('<div>');
+                memDiv.load('/privmsg?folder=inbox ' + oConfig.sSearch + ':lt(' + iAmount + ')', function() {
+                    if (punbb.length) {
+                        memDiv
+                            .html(
+                                memDiv.html()
+                                    .replace(/\<\/a\> por/g, '</a></br><span class="ipsType_smaller desc lighter">')
+                                    .replace(/\<\/td\>/g, '</span></div></li>')
+                                    .replace(/\<td class="tcl tdtopics"\>/g, '<li class="ipsType_small clearfix"><img class="ipsUserPhoto ipsUserPhoto_mini left" alt="User image" src="https://i.servimg.com/u/f78/18/17/62/92/defaul10.png"><div class="list_content">')
+                            )
+                            .find('span.status').remove();
+                    } else {
+                        if (oConfig.sExpression0) {
+                            eval( oConfig.sExpression0 );
+                        }
+                        var sHtml = '';
+                        oConfig.sTarget = memDiv.find(oConfig.sTarget);
+                        jQuery.each(oConfig.sTarget, function( index, value ) {
+                            sHtml +=
+                                '<li class="ipsType_small clearfix">' +
+                                    '<img class="ipsUserPhoto ipsUserPhoto_mini left" alt="User image" src="https://i.servimg.com/u/f78/18/17/62/92/defaul10.png">' +
+                                    '<div class="list_content">' +
+                                        eval( oConfig.sExpression1 ) + '<br>' +
+                                        '<span class="ipsType_smaller desc lighter">' + eval( oConfig.sExpression2 ) + '</span>' +
+                                    '</div>' +
+                                '</li>';
+                        });
+                        memDiv.html(sHtml);
+                    }
+                    jQuery('#user_inbox_link_menucontent ul.ipsList_withminiphoto').html(memDiv.html());
+ 
+                    var oImgTarget = oTarget.find('.ipsType_small.clearfix');
+                    oImgTarget.each(function( index ) {
+                        var UserURL = jQuery(this).find('.ipsType_smaller a, .list_content a:last');
+ 
+                        if (UserURL.length) {
+                            UserURL = UserURL.attr('href');
+                            var oImgTag = jQuery(this).find('.ipsUserPhoto');
+                            var UserIMG = sessionStorage.getItem(UserURL); /* Gets the avatar saved in local storage */
+ 
+                            /* If avatar alread saved, then no request member profile! */
+                            if(UserIMG) {
+                                jQuery(this).find('img').attr('src', UserIMG);
+                            } else {
+                                /* if not, then only request per session!!! */
+                                jQuery.get(UserURL, function(data){
+                                    var profile_img = jQuery(oConfig.sGetIMG, data).attr('src');
+                                    if (profile_img !== undefined) {
+                                        oImgTag.attr('src', profile_img);
+                                        /* Saves the member avatar in local storage */
+                                        sessionStorage.setItem(UserURL, profile_img);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                });
+            
+            oTarget
+                .css({
+                    'left': (oClicked.offset().left + oClicked.outerWidth()) - oTarget.outerWidth(),
+                    'top': oClicked.offset().top + oClicked.outerHeight()
+                })         
+                .fadeIn(400);
+            jQuery(document).mousedown(function() {
+                if(!oTarget.is(":hover")) {
+                    jQuery(document).unbind('mousedown');
+                    oClicked.removeClass('menu_active');
+                    oTarget.fadeOut(400);
+                }
+            });         
+        } else {
+            oClicked.removeClass('menu_active');
+            oTarget.fadeOut(400);
+        }
+        return false;
+    });
+});
+        
+                                  
+                                  // PREVIEW MP
+                                  
+                                          if(window.location.pathname == "/privmsg") {
+            $(function () {
+                $('a.topictitle').after('<a href="#" style="margin-left: 5px;" class="preview_topic">[Pré-visualizar]</a>');
+                $('.preview_topic').click(function () {
+                    var url = this.previousSibling.href;
+                    $('form[name="privmsg_list"]').before('<div id="fechar"><div id="topic_popup" class="popupWrapper"></div></div>');
+                    $('#topic_popup').load(url + ' form .post:first', function () {
+                            $('#topic_popup, #fechar').click(function () {
+                                $('#fechar, #topic_popup').remove();
+                            });
+                            $('html,body').animate({
+                                scrollTop: $('#fechar').offset().top
+                            }, 600);               
+                        });
+                    return false;
+                });
+            });
+        }
+}

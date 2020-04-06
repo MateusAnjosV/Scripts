@@ -1,0 +1,46 @@
+/* Google Account
+Year: 2018
+Developed by: Holder Privative Support */
+
+$(document).ready(function(){
+	
+	// SALVANDO DADOS ENVIADOS PELO GOOGLE
+	var senha = window.localStorage.getItem('password');
+    var name = window.localStorage.getItem('usuario');
+	var Email = window.localStorage.getItem('Email');
+	var partee = window.localStorage.getItem('parte');
+
+  // LOGAR GOOGLE
+  $('#my-signin2').click(function(){
+  $.get("/profile.forum?mode=viewprofile&u=" + name, function(checar){
+     	if($('#cp-main', checar).length) {
+           localStorage.clear();
+	 $('.fl_username').val(name);
+	
+	  $('html#min-width body#modernbb div.conteneur_minwidth_IE div.conteneur_layout_IE div.conteneur_container_IE div#wrap div#page-body div#content-container.no-left div#outer-wrapper div#wrapper div#container div#content-main div#main div#main-content div.panel form div.user_login_form.center input.inputbox.fl_password').val(senha);
+	  $('.mainoption[name="login"]').click();
+	  
+			}		
+    
+  });
+  });
+  
+  // REGISTRAR GOOGLE
+if(window.location.search == "?step=2&agreement=1&privacy=1") {
+ 
+	$('#username_reg').val(name);
+	$('#email').val(Email);
+	$('#password_reg').val(senha);
+	document.getElementById("wantsnews").checked = true;
+
+  
+  $('html#min-width body#modernbb div.conteneur_minwidth_IE div.conteneur_layout_IE div.conteneur_container_IE div#wrap div#page-body div#content-container.no-left div#outer-wrapper div#wrapper div#container div#content-main div#main div#main-content div.panel.row3 div.inner div#cp-main.ucp-main form#ucp fieldset.submit-buttons input.button1')
+  .click();
+
+  
+    
+  
+}
+                  
+                  
+});

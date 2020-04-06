@@ -1,0 +1,685 @@
+// Similar topics in new topic
+          /* The following code is DOM-dependent. It may not work if you modify the posting structure in the forum templates */
+         
+            var FLRX = FLRX || {};
+         
+            FLRX.similarTopics = (function () {
+         
+                'use strict';
+         
+                let settings = { // default settings
+                    forums : [1, 2, 3, 4, 5, 6],
+                    searchIn : 'c1',
+                    maxTopics : 5,
+                    wordMinLength: 4,
+         
+         
+                    autocomplete: false, // disable browser autocomplete from subject input
+         
+                    /* Advanced settings */
+                    excludedCharacters : new RegExp(/[.,\/#!$%\^&\*¿?!¡;:{}\\=\-_`~"«“‘’”»()\[\]]/, 'g'), // The ignored characters from the topic title.
+                    dom : { // default settings (should work if left like this with unmodified templates)
+         
+                        /* Search page */
+                        topicscontainer : '.forabg',
+                        topic          : 'dd.dterm',
+                        infocontainer  : '.span-tab',
+                        titlelink      : '.topictitle',
+                        userlink        : 'a[href^="/u"]',
+                        forumlink      : 'a[href^="/f"]',
+                        topicicon      : 'dl.icon',
+         
+                        /* structure */
+                        visible        : 'visible',
+         
+                        /* posting page */
+                        titleinput      : '#postingbox input[name="subject"]',
+                        inputcontainer  : 'dl',
+         
+                        /* created elements */
+                        maincontainer  : $('<div />', { id : 'similarTopics' }),
+                        similartopiccont : $('<div />', { class : 'topic-container' }),
+                        loadingelm      : $('<div />', { class : 'spinner' })
+                                            .append($('<div/>', { class:'double-bounce1' }))
+                                            .append($('<div/>', { class:'double-bounce2' })),
+                        topicelmcont    : $('<div />', { class: 'topic' }),
+                        topicelmtitle  : $('<div />', { class: 'topic-title' }),
+                        topicdatacont  : $('<div />', { class: 'topic-data' }),
+                        topicflags      : $('<div />', { class: 'topic-flags' }),
+                        topiciconcont  : $('<div />', { class: 'topic-icon' }),
+                        topicstatus    : $('<div />', { class: 'topic-status' }),
+                        topicelminfo    : $('<div />', { class: 'topic-info' }),
+                        topicauthor    : $('<span />', { class: 'topic-author', text: 'by ' }),
+                        topicforum      : $('<span />', { class: 'topic-forum', text: ' HSP ' }),
+                        similarstitle  : $('<h4 />', { class: 'similarTopics-title', text: 'Você pode estar interessado em verificar estes tópicos antes de abrir um novo' }),
+         
+                    },
+                },
+         
+                structure = {},
+         
+                request,
+         
+                debounce = function(cb, delay) {
+                    let timeout;
+                    return function(...a) {
+                        clearTimeout(timeout);
+                        timeout = setTimeout( _ => { timeout = null;  cb.call(this, ...a);  }, delay);
+                    };
+                },
+         
+                /* transforms a UTF8-encoded URI into Windows-1252 */
+                sanitizeURI = function(uri) {
+         
+                    /* For some reason Forumotion uses Windows-1252 encoding in search URIs.
+                    This workaround will only fix issues with Spanish characters */
+         
+                    return uri.replace(/%C3%91/g, '%D1') // Ñ
+                        .replace(/%C3%B1/g, '%F1') // ñ
+                        .replace(/%C3%81/g, '%C1') // Á
+                        .replace(/%C3%89/g, '%C9') // É
+                        .replace(/%C3%8D/g, '%CD') // Í
+                        .replace(/%C3%93/g, '%D3') // Ó
+                        .replace(/%C3%9A/g, '%DA') // Ú
+                        .replace(/%C3%9C/g, '%DC') // Ü
+                        .replace(/%C3%A1/g, '%E1') // á
+                        .replace(/%C3%A9/g, '%E9') // é
+                        .replace(/%C3%AD/g, '%ED') // í
+                        .replace(/%C3%B3/g, '%F3') // ó
+                        .replace(/%C3%BA/g, '%FA') // ú
+                        .replace(/%C3%BC/g, '%FC'); // ü
+                },
+         
+                /* returns an object array (representation of topics) from a search URL synchronously */
+                searchTopics = function(url, cb) {
+                    $.ajax({
+                        url : url,
+                    }).done(function(data) {
+                        let relatedTopics = [],
+                            $forabg = $(settings.dom.topicscontainer, data);
+                        if($forabg.length) {
+                            $forabg.find(settings.dom.topic).slice(0, settings.maxTopics).each(function() {
+                             
+                                let $this = $(this),
+                                $topictitle = $this.find(settings.dom.titlelink),
+                                $spantab = $this.find(settings.dom.infocontainer),
+                                $forumlink = $spantab.find(settings.dom.forumlink),
+                                $userlink = $spantab.find(settings.dom.userlink),
+                                $topicicon = $this.closest(settings.dom.topicicon);
+         
+                                relatedTopics.push({
+                                    title  : $topictitle.text().trim(),
+                                    url    : $topictitle.attr('href'),
+                                    icon  : $this.css('background-image').slice(4, -1),
+                                    status : $topicicon.css('background-image').length
+                                                ? $topicicon.css('background-image').slice(4, -1)
+                                                : false,
+                                    forum  : {
+                                        name : $forumlink.text(),
+                                        url  : $forumlink.attr('href'),
+                                    },
+                                    user  : {
+                                        name : $userlink.text(),
+                                        url  : $userlink.attr('href'),
+                                    },
+                                });
+                            });
+                        }
+         
+                        cb.call(this, relatedTopics);
+                    }).fail(_ => {let up; throw up || false});
+                },
+         
+                /* returns an array with the words of a string that fulfil conditions of settings.excludedCharacters */
+                getWords = function(str) {
+                    return str.trim().replace(settings.excludedCharacters, '').split(' ').filter(elm => elm.length >= settings.wordMinLength);
+                },
+         
+                /* updates the similar topics DOM structure with the ones in the input array */
+                updateDOM = function(arr) {
+         
+                    structure.topiccontainer.empty();
+         
+                    if(arr.length) {
+                        let docfrag = document.createDocumentFragment();
+                        $.each(arr, function(index, topic) {
+         
+                            let $topicTitle = settings.dom.topicelmtitle.clone(),
+                            $topicContainer = settings.dom.topicelmcont.clone(),
+                            $topicInfo      = settings.dom.topicelminfo.clone(),
+                            $topicauthor    = settings.dom.topicauthor.clone(),
+                            $topicstatus    = settings.dom.topicstatus.clone(),
+                            $topicforum    = settings.dom.topicforum.clone(),
+                            $topicflags    = settings.dom.topicflags.clone(),
+                            $topicdata      = settings.dom.topicdatacont.clone(),
+                            $topicicon      = settings.dom.topiciconcont.clone(),
+         
+                            /* link creation */
+                            $topicLink  = $('<a />', { href: topic.url, text: topic.title }),
+                            $forumlink  = $('<a />', { href: topic.forum.url, text: topic.forum.name }),
+                            $authorlink = $('<a />', { href: topic.user.url, text: topic.user.name });
+         
+                            $topicicon.css('background-image', `url('${ topic.icon }')`);
+                            topic.status && $topicstatus.css('background-image', `url('${ topic.status }')`);
+         
+                            $topicauthor.append($authorlink);
+                            $topicforum.append($forumlink);
+                            $topicTitle.append($topicLink);
+                            $topicInfo.append($topicauthor, $topicforum);
+                            $topicdata.append($topicTitle, $topicInfo);
+                            $topicflags.append($topicstatus, $topicicon);
+                            $topicContainer.append($topicflags, $topicdata);
+         
+                            docfrag.append($topicContainer[0]);
+         
+                        });
+                        structure.topiccontainer[0].appendChild(docfrag);
+                     
+                    } else
+                        structure.maincontainer.removeClass(settings.dom.visible);
+                     
+                },
+         
+                setLoadingStatus = function() {
+                    structure.loadingcontainer.addClass(settings.dom.visible);
+                    structure.recentstitle.removeClass(settings.dom.visible);
+                    structure.topiccontainer.removeClass(settings.dom.visible);
+                },
+                topicsRetrieved = function (){
+                    structure.loadingcontainer.removeClass(settings.dom.visible);
+                    structure.recentstitle.addClass(settings.dom.visible);
+                    structure.topiccontainer.addClass(settings.dom.visible);
+                },
+         
+                searchAlgorithm = function(words, cb) {
+                    let params = {
+                        search_where    : settings.searchIn || `f${/\?f=(\d+)/.exec(location.search)[1]}`,
+                        show_results    : 'topics',
+                        sort_by        : 0,
+                        sort_dir        : 'DESC',
+                        search_terms    : 'all',
+                        search_keywords : words.join(' '),
+                    };
+         
+                    searchTopics(`/search?${sanitizeURI($.param(params))}`, function(arr) {
+                        let relatedTopics = arr;
+         
+                        if(relatedTopics.length < settings.maxTopics) {
+                            params.search_terms = 'any';
+                            searchTopics(`/search?${sanitizeURI($.param(params))}`, function(arr) {
+                                let searchAnyWord = arr,
+                                neededElms = settings.maxTopics - relatedTopics.length;
+                                searchAnyWord = searchAnyWord.filter(elm => relatedTopics.find(e => e.url == elm.url) === undefined); // Ignore duplicates
+                                relatedTopics = [...relatedTopics, ...searchAnyWord.slice(0, neededElms)];
+         
+                                cb.call(this, relatedTopics);
+         
+                            });
+                        }
+                     
+                        cb.call(this, relatedTopics);
+         
+                    });
+         
+                },
+         
+                /* main function */
+                searchSimilarTopics = function($title) {
+                    let words = getWords($title.val());
+                 
+         
+                    if(words.length == 0)
+                        return;
+         
+                    // for the first time, if it was hidden
+                    structure.maincontainer.addClass(settings.dom.visible);
+         
+                    setLoadingStatus();
+         
+                    searchAlgorithm(words, function(arr) {
+                        updateDOM(arr);
+                        topicsRetrieved();
+                    });
+         
+                },
+                generateStructure = function($title) {
+                    let $similarTopics = settings.dom.maincontainer.clone(),
+                    $spinner = settings.dom.loadingelm.clone(),
+                    $topicsContainer = settings.dom.similartopiccont.clone(),
+                    $recentsTitle = settings.dom.similarstitle.clone();
+                 
+                    structure = {
+                        maincontainer    : $similarTopics,
+                        loadingcontainer : $spinner,
+                        topiccontainer  : $topicsContainer,
+                        recentstitle    : $recentsTitle,
+                    };
+         
+                    $similarTopics.append($spinner, $recentsTitle, $topicsContainer);
+         
+                    $title.closest(settings.dom.inputcontainer).after($similarTopics);
+                },
+                init = function(options) {
+                    $.extend(true, settings, options);
+         
+                    let timeout,
+                    $title = $(settings.dom.titleinput);
+         
+                    if(!settings.autocomplete)
+                        $title.attr('autocomplete', 'off');
+         
+                    // append the basic dom structure (should be hidden by default with CSS)
+                    generateStructure($title);
+         
+                    $title.on('keypress', debounce(function(e) {
+                        if(e.which !== 0)
+                            searchSimilarTopics($title);
+                    }, 500));
+         
+                };
+         
+         
+                /* API :-) */
+                return {
+                    init : init,
+                };
+         
+            })();
+         
+         
+            !function() {
+         
+                const settings = {
+                    forums : [1,2,3,4,5,6,7], // Forum IDs (separated by comma) where the "Similar Topics" feature will be enabled. Set to true to enable the feature everywhere (not recommended).
+                    searchIn : '-1', // Where the searches will take place. Use -1 to search everywhere. If not set, it will search the forum where the topic is being created
+                    maxTopics : 5, // Maximum amount of topics shown
+                };
+         
+         
+                location.pathname == '/post' &&
+                location.search.indexOf('&mode=newtopic') > -1 &&
+                (settings.forums === true || settings.forums.some(id => location.search.indexOf(`?f=${id}`) > -1)) &&
+                $(function() {
+                    FLRX.similarTopics.init(settings);
+                });
+         
+            }();
+
+
+// Additional options for hashtags
+
+        $(function() {
+          var a = document.getElementsByTagName('A'), b = document.createElement('DIV'), i = 0, j = a.length, actif, t;
+          b.className = 'fa_hashtag-options';
+          b.style.display = 'none';
+          document.body.appendChild(b);
+         
+          for (; i<j; i++) {
+            if (a[i].title && /\/tags\//.test(a[i].href) && /^#/.test(a[i].innerHTML)) {
+              a[i].className += ' fa_hashtag';
+             
+              a[i].onclick = function() {
+               
+                if (actif != this) {
+                  actif = this, t = this.innerHTML;
+                  t.length > 24 && (t = t.slice(0, 25).replace(/^\s+|\s+$/g, '') + '...');
+                 
+                  b.style.left = $(this).offset().left + 'px';
+                  b.style.top = $(this).offset().top + 'px';
+                  b.innerHTML = '<div class="fa_hashtag-title">Options for <span class="fa_hashtag-tag">' + t + '</span></div><b>&bull; </b><a href="' + this.href + '">View tagged subjects</a>' + (_userdata.session_logged_in ? '<form method="post" name="addtag_form" action="/profile?mode=editprofile&page_profil=tags&start&submit=1"><b>&bull; </b><a href="#" onclick="this.parentNode.submit();return false;">Follow <span class="fa_hashtag-tag">' + t + '</span></a><input name="addtag" type="hidden" value="' + this.innerHTML.slice(1) + '"></form><b>&bull; </b><a href="/profile?mode=editprofile&page_profil=tags">Manage tags</a>' : '');
+                 
+                  /none/.test(b.style.display) && (b.style.display = 'block');
+                } else {
+                  actif = null;
+                  b.style.display = 'none';
+                }
+               
+                return false;
+              };
+            }
+          }
+        });
+
+
+
+// bbcode hashtag
+        $(function(){
+          if (!$.sceditor || /\/privmsg/.test(window.location.pathname)) return;
+          var storage = window.localStorage, s = document.createElement('SELECT'), tags = '';
+         
+          if (storage && storage.faTags && storage.faTagsExp > +new Date - 29*59*1000 && storage.faTagsUser == _userdata.username) s.innerHTML = storage.faTags;
+          else {
+            $.get('/profile?mode=editprofile&page_profil=tags', function(d) {
+              var h = $('form[name="tag_list"] a', d);
+           
+              if (h.length) {
+                for (var i = 0, j = h.length, txt; i<j; i++) {
+                  txt = h[i].innerHTML.replace(/^\s+|\s+$/g,'');
+                  if (/^#/.test(txt)) {
+                    !tags && (tags += '<option value="">Select a tag</option>');
+                    tags += '<option value="'+ txt.slice(1) +'">' + (txt.length > 24 ? txt.slice(0, 25) + '...' : txt) + '</option>';
+                  }
+                }
+                s.innerHTML = tags;
+              }
+           
+              if (storage) {
+                storage.faTags = tags ? tags : 0;
+                storage.faTagsUser = _userdata.username;
+                storage.faTagsExp = +new Date;
+              }
+            });
+          }
+           
+         
+          $.sceditor.command.set('hashtag', {
+            dropDown : function(editor, caller, callback) {
+              var a = document.createElement('DIV'), b = document.createElement('INPUT'), c = document.createElement('INPUT');
+              b.type = 'button';
+              b.value = 'Insert';
+              b.className = 'button';
+             
+              c.type = 'text';
+              c.id = 'fa_hashtag';
+             
+              a.innerHTML = '<div><label for="fa_hashtag">Hashtag :</label></div>' + ( s.innerHTML ? '<div><label>Followed tags :</label></div>' : '' ) + '<div></div>';
+              a.firstChild.appendChild(c);
+              a.lastChild.appendChild(b);
+             
+              if (s.innerHTML != 0) {
+                s.value = '';
+                a.getElementsByTagName('DIV')[1].appendChild(s);
+                s.onchange = function() {
+                  c.value = s.value;
+                };
+              }
+             
+              b.onclick = function() {
+                c.value && callback(c.value);
+                editor.closeDropDown(true);
+              };
+         
+              editor.createDropDown(caller, 'inserthashtag', a);
+            },
+         
+            exec : function(c) { tag(c, this) },
+            txtExec : function(c) { tag(c, this) },
+           
+            tooltip : 'Insert a hashtag'
+          });
+         
+          toolbar = toolbar.replace(/quote,/,'hashtag,quote,');
+         
+          function tag(c, e) {
+            $.sceditor.command.get('hashtag').dropDown(e, c, function(tag) {
+              e.insertText('#' + tag.replace(/^#/,'').replace(/[\xD7\xF7\x00-\x2F\x3A-\x40\x5B-\x60\x7B-\xBF]/g, '_') + ' ');
+            });
+          }
+        });
+
+
+
+
+        /*globals jQuery, _userdata*/
+         
+        /**
+         * Allow users to log in with their e-mail in place of username.
+         *
+         * @author Kyo Panda
+         * @see <a href="http://ajuda.forumeiros.com">Fórum dos Fóruns</a>
+         * @license MIT
+         */
+         
+        (function($) {
+          'use strict';
+         
+          var config = {
+              i18n: {
+                pt: {
+                    loading: 'Carregando...',
+                },
+                en: {
+                    loading: 'Loading...',
+                },
+                es: {
+                    loading: 'Cargando...',
+                }
+              }
+          };
+         
+          $(function() {
+              var lang = window._userdata && config.i18n[_userdata.user_lang] ?
+                config.i18n[_userdata.user_lang] : config.i18n.en
+              ;
+             
+              var submitted = false;
+             
+              $('form[name="form_login"]').on('submit', function(event) {
+                var $this = $(this);
+               
+                var $username = $this.find('input[name="username"]');
+               
+                if ($username.val().indexOf('@') === -1 || submitted) {
+                    $this.append('<input type="hidden" value="1" name="login" />');
+                    return true;
+                }
+               
+                $this
+                    .find('input[type="submit"]')
+                    .val(lang.loading)
+                    .prop('disabled', true)
+                    .css('opacity', 0.5)
+                ;
+               
+                $.get('/memberlist', {
+                    change_version: 'modernbb',
+                    mode: 'username',
+                    order: 'DESC',
+                    submit: true,
+                    username: $username.val()
+                }, function(context) {
+                    var $name = $('.avatar-mini:first', context);
+                   
+                    if ($name.length) {
+                      $username.val($name.text().trim());
+                    }           
+                   
+                    submitted = true;
+                    $this.submit();
+                });
+               
+                event.preventDefault();
+              });
+          });
+        }(jQuery));
+
+
+// Syntax Highlighter
+
+        /***
+        * Syntax Highlighter funtionality for Forumotion!
+        * (c) http://balupton.github.io
+        * Version: 1.28082013-jq1.9.1
+        * Made by JScript - 2013/12/16
+        */
+        jQuery(function () {
+            var sCSS = '<style>' +
+                '/***' +
+                '* Syntax Highlighter funtionality for Forumotion!' +
+                '* CSS: .codebox dd.cont_code' +
+                '* (c) http://balupton.github.io' +
+                '* Version: 1.28082013-jq1.9.1' +
+                '* Made by JScript - 2013/12/16' +
+                '*/' +
+                'code.punbb_block, pre.punbb_block {' +
+                '  background-color: #FAFAFA !important;' +
+                '  border: 1px solid #C9C9C9 !important;' +
+                '  color: #000000;' +
+                '  font-family: Consolas,"Bitstream Vera Sans Mono","Andale Mono",Monaco,"DejaVu Sans Mono","Lucida Console",monospace !important;' +
+                '  font-size: 11px !important;' +
+                '  line-height: 110% !important;' +
+                '  max-height: 250px !important;' +
+                '  overflow: auto !important;' +
+                '  padding: 5px !important;' +
+                '  white-space: pre-wrap !important;' +
+                '  width: auto !important;' +
+                '}' +
+                '.punbbtop {' +
+                '  background-color: #FFDEAD !important;' +
+                '  color: #1D3652;' +
+                '  font-size: 10px;' +
+                '  font-weight: bold;' +
+                '  line-height: 100%;' +
+                '  margin-top: 5px;' +
+                '  padding: 2px 1px 2px 3px;' +
+                '}' +
+                '.punbbtop button {' +
+                '  background: -moz-linear-gradient(center top , #EDEDED 5%, #DFDFDF 100%) repeat scroll 0 0 #EDEDED;' +
+                '  border: 1px solid #BBBBBB;' +
+                '  border-radius: 3px 3px 3px 3px;' +
+                '  color: #1D3652;' +
+                '  cursor: pointer;' +
+                '  display: inline-block;' +
+                '  font-size: 10px;' +
+                '  padding: 0 6px;' +
+                '  text-decoration: none;' +
+                '}' +
+                '.punbbtop button:hover {' +
+                '  background: -moz-linear-gradient(center top , #DFDFDF 5%, #EDEDED 100%) repeat scroll 0 0 #DFDFDF;' +
+                '  border-color: #9A9A9A;' +
+                '  color: #3D70A3;' +
+                '}' +
+                '.punbbtop button:active {' +
+                '  position: relative;' +
+                '  top: 1px;' +
+                '}' +
+                'pre.punbb_block.expand, code.punbb_block.expand {' +
+                '  max-height: 100% !important;' +
+                '}' +
+                '.prettyprint ol.linenums {' +
+                '  padding-left: 15px !important;' +
+                '}' +
+                '</style>';
+            jQuery(sCSS).insertBefore('#page-body');
+         
+            if (jQuery('.cont_code').length) {
+                var tagCode = jQuery('.cont_code');
+            } else {
+                if (jQuery('.cont_code').length) {
+                    var tagCode = jQuery('.code');
+                } else {
+                    var tagCode = jQuery('code');       
+                }
+            }
+            tagCode.each(function () {
+                var sContent = jQuery(this).html();
+                var codebox = jQuery(this).parent().parent();
+                codebox.before('<div class="punbbtop">Code        <button onclick="punbbExpand(this); return false;">expand</button><button style="display: none" onclick="punbbCollapse(this); return false;">collapse</button>  <button onclick="punbbSelect(this); return false;">select</button>  <button onclick="punbbPopup(this); return false;">popup</button>  <button style="margin-right: 50px; float: right;" onclick="punbbAbout(this); return false;">?</button></div><pre class="highlight punbb_block">' + sContent + '</pre>');
+                codebox.remove();
+            });
+            jQuery.getScript('http://balupton.github.io/jquery-syntaxhighlighter/scripts/jquery.syntaxhighlighter.min.js', function () {
+                jQuery.SyntaxHighlighter.init({
+                    'wrapLines': false
+                })
+            })
+        });
+        function punbbExpand(oThis) {
+            jQuery(oThis).css('display', 'none');
+            jQuery(oThis).next().css('display', '');
+            jQuery(oThis).parent().next('pre.punbb_block').addClass('expand');
+        }
+        function punbbCollapse(oThis) {
+            jQuery(oThis).css('display', 'none');
+            jQuery(oThis).prev().css('display', '');
+            jQuery(oThis).parent().next('pre.punbb_block').removeClass('expand');
+        }
+        function punbbPopup(oThis) {
+            var content = jQuery(oThis).parent().next('pre.punbb_block').html();
+            var my_window = window.open("","PunBB_Code","scrollbars=1,toolbar=no,menubar=no,personalbar=no,status=0,left=0,location=0,menubar=0,top=0,width=640,height=480");
+         
+            my_window.document.write('<pre>'+content+'</pre>');
+        }
+        function punbbAbout(oThis) {
+            alert('By JScript FROM Brazil! Homenage, best programator!');
+        }
+        function punbbSelect(oThis) {
+            var doc = document;
+            var text = jQuery(oThis).parent().next('pre.punbb_block')[0];
+            if (doc.body.createTextRange) {
+                var range = doc.body.createTextRange();
+                range.moveToElementText(text);
+                range.select();
+            } else if (window.getSelection) {
+                var selection = window.getSelection();
+                var range = doc.createRange();
+                range.selectNodeContents(text);
+                selection.removeAllRanges();
+                selection.addRange(range);       
+            }
+        }
+
+
+        /**
+         * Melhorar o botão CODE no SCEditor.
+         *
+         * @author: Luiz~
+         * @see: <a href="http://ajuda.forumeiros.com/">Fórum dos Fóruns</a>
+         * @licence: MIT
+         */
+        (function ($) {
+          'use strict';
+         
+          $(window).on('load', function () {
+         
+            $('.sceditor-button-code').css('display', 'none');
+            var $faCode = $([
+              '<a class="sceditor-button sceditor-button-c0de" data-sceditor-command="fa-code" ' +
+              '  unselectable="on" title="Code">',
+              '  <div unselectable="on" style="background-position: 0 -544px; filter: none!important; ' +
+              '  opacity: 1!important;">Code</div>',
+              '</a>',
+            ].join('\n'))
+              .on('click', function () {
+                $('.sceditor-fa-code-drop')
+                  .css({
+                    left: $faCode.offset().left + 'px',
+                    top: $faCode.offset().top + 'px'
+                  })
+                    .toggle();
+              })
+                .insertAfter('.sceditor-button-code')
+            ;
+         
+            $([
+              '<div class="sceditor-dropdown sceditor-fa-code-drop">',
+              '  <div>',
+              '    <label for="txt" unselectable="on">Cole o código:</label>',
+              '    <textarea id="fa-code-content" value="" cols="20" rows="7" ' +
+              '    style="min-width: 160px; width: 160px;"></textarea>',
+              '  </div>',
+              '  <div>',
+              '    <input type="button" class="button" id="fa-code-btn" value="Inserir código">',
+              '  </div>',
+              '</div>',
+            ].join('\n'))
+              .css({
+                marginTop: '28px',
+                display: 'none'
+              })
+                .appendTo('body')
+            ;
+         
+            var $sceditor = $("#text_editor_textarea");
+            $('#fa-code-btn').on('click', function () {
+              $sceditor
+                .sceditor('instance')
+                  .insertText('[code]' + $('#fa-code-content').val() + '[/code]')
+              ;
+              $('.sceditor-fa-code-drop').toggle();
+              $('#fa-code-content').val('');
+            });
+          }); 
+        }(jQuery));
+
+
+// TRANCAR TÓPICO NA CRIAÇão

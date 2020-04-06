@@ -1,0 +1,69 @@
+$(function() {
+   $("#main-content div").first().css({
+        "margin-left": "0 !important",
+        position: "relative",
+        "margin-top": "4%"
+    }), $.get("/f3-", function(t) {
+        var i = $(".topictitle", t).eq(0).attr("href"), n = $(".topictitle", t).eq(1).attr("href"), e = $(".topictitle", t).eq(2).attr("href");
+        $(".mod-news").eq(0).click(function() {
+            window.open(i);
+        }), $(".mod-news").eq(1).click(function() {
+            window.open(n);
+        }), $(".mod-news").eq(2).click(function() {
+            window.open(e);
+        });
+    });
+});
+
+      /*** Avatar for ModernBB in Topics recents
+* Developed by: Holder Privative Support 
+* Year: 2018
+*/
+        $(function(){
+              var style = document.createElement('STYLE'), css = '.mini_ava2>img{height:20px;margin-right:5px;width:20px;}';
+              style.type = 'text/css';
+              if (style.styleSheet) style.styleSheet.cssText = css;
+              else style.appendChild(document.createTextNode(css));
+              document.getElementsByTagName('HEAD')[0].appendChild(style);
+             
+                  if(!window.localStorage) return;
+             
+                  // Default avatar
+                    var default_avatar= 'https://illiweb.com/fa/invision/pp-blank-thumb.png';
+             
+                  // Time of cache 24h*60m*60s*1000ms - one day
+                    var caching_time= 24*60*60*1000;
+             
+                  // Time of cache in case of error 60s*1000ms - one minute
+                    var caching_error= 60*1000;
+             
+                  var set_avatar= function(id) {
+                        $('.mini_ava2.member'+id).html('<img src="'+get_avatar(id)+'" />');
+                    };
+             
+                  var get_avatar= function(id) {
+                        if(localStorage.getItem('t_ava'+id) < +new Date - caching_time || (localStorage.getItem('d_ava'+id)==default_avatar && localStorage.getItem('t_ava'+id) < +new Date - caching_error))
+                        {
+                            localStorage.setItem('d_ava'+id, default_avatar);
+                            $.get('/u'+id, function (d){
+                                localStorage.setItem('t_ava'+id,+new Date);
+                                localStorage.setItem('d_ava'+id, $('#profile-advanced-right .module:first div img:first,.forumline td.row1.gensmall:first > img, .frm-set.profile-view.left dd img,dl.left-box.details:first dd img, .row1 b .gen:first img, .real_avatar img',d).first().attr('src')||default_avatar);
+                                set_avatar(id);
+                            });
+                        }
+                        return localStorage.getItem('d_ava'+id);
+                    };
+             
+                  var to_replace= {};
+             
+                  $('#recentTopics a[href^="/u"]').each(function(){
+                        to_replace[$(this).attr('href').substr(2)]= 1;
+                        $(this).before('<span class="mini_ava2 member'+$(this).attr('href').substr(2)+'"></span>');
+                    });
+             
+                  for(i in to_replace)
+                    {
+                        set_avatar(i);
+                    };
+             
+              });

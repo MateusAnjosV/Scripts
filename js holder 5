@@ -1,0 +1,48 @@
+$(function() {
+   $("#main-content div").first().css({
+        "margin-left": "0 !important",
+        position: "relative",
+        "margin-top": "4%"
+    }), $.get("/f3-", function(t) {
+        var i = $(".topictitle", t).eq(0).attr("href"), n = $(".topictitle", t).eq(1).attr("href"), e = $(".topictitle", t).eq(2).attr("href");
+        $(".mod-news").eq(0).click(function() {
+            window.open(i);
+        }), $(".mod-news").eq(1).click(function() {
+            window.open(n);
+        }), $(".mod-news").eq(2).click(function() {
+            window.open(e);
+        });
+    });
+});
+
+   $(window).load(function() {
+      var chatbox_script = function() {
+        $('#chatbox_header').click(function(){ 
+                          $('#chatbox').fadeToggle();
+                        });
+        $('#chatbox > p > .msg > span').filter('[style="color:green"],[style="color:red"]').closest('p').remove();
+        var overrided = Chatbox.prototype.refresh;
+        Chatbox.prototype.refresh = function(data) {
+			
+          if (data.messages && data.messages.length) {
+            data.messages = $.grep(data.messages, function(v) {
+              return v.userId != -10 || $.inArray(v.msgColor, ["red", "green"]) == -1;
+			  
+            });
+          }
+          overrided.call(this, data);
+        };
+      };
+ 
+      var
+    s=document.createElement('script');s.text="("+chatbox_script.toString()+")();";$('object[data^="/chatbox/index.forum"],iframe[src^="/chatbox/index.forum"]').each(function(){try{$(this.contentDocument||this.contentWindow.document).find("#chatbox").closest("html").find("head").first().each(function(){this.appendChild(s.cloneNode(true))})}catch(a){}})
+    });
+
+
+ 
+    $(window).load(function() {
+      var chatbox_script = function() {
+        setTimeout(function(){ $('#chatbox_option_co:visible').click() }, 1000);
+      };
+      var s=document.createElement('script');s.text="("+chatbox_script.toString()+")();";$('object[data^="/chatbox/index.forum"],iframe[src^="/chatbox/index.forum"]').each(function(){try{$(this.contentDocument||this.contentWindow.document).find("#chatbox").closest("html").find("head").first().each(function(){this.appendChild(s.cloneNode(true))})}catch(a){}})
+    });
